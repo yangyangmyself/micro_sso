@@ -8,7 +8,7 @@ keytool -genkey -alias jcbk -validity 36500 -keyalg RSA -keysize 1024 -keypass 1
 ```
 keytool -genkey -alias jcbk_client -validity 7 -keyalg RSA -keysize 1024 -keypass 123456 –storetype PKCS12 -storepass 123456 -dname "cn=姓名 账号, ou=00, o=00, l=00, st=01, c=CN" -keystore jcbk_client.p12
 ```
-### 3.导入客户端证书
+### 3.导出客户端证书
 ```
 keytool -export -alias dc_client -keystore D:/jcbk_client.p12  -storetype PKCS12 -keypass 123456  -file D:/jcbk_client.cer
 ```

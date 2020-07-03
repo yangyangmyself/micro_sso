@@ -45,16 +45,6 @@ server:
 ```
 * 启用http端口配置，`注意`下述适用`Sprintboot 1.X`, 引用初始类与Springboot 2.X有区别
 ```
-package org.spring.oauth.server.config;
-
-import org.apache.catalina.connector.Connector;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.embedded.ConfigurableEmbeddedServletContainer;
-import org.springframework.boot.context.embedded.EmbeddedServletContainerCustomizer;
-import org.springframework.boot.context.embedded.tomcat.TomcatEmbeddedServletContainerFactory;
-import org.springframework.context.annotation.Bean;
-import org.springframework.stereotype.Component;
-
 /**
  * 启用Https后,server.port默认用于启动https port
  * 如果需要同时启用http,需要启用本类配置
@@ -100,25 +90,8 @@ public class EnabledHTTPConfiguration {
 * `PKIAuthenticationFilter`获取证书主体，用于父类构建PreAuthenticatedAuthenticationToken对象，`AuthenticationProvider`提供给`AuthenticationManager`认证，`UserDetailsService`提供具体主体获取，需要注入AuthenticationProvider对象中
 * 将自定类注入Spring security体系结构中
 
-`PKIAuthenticationFilter`类实现证书认证通过以后，提取证书`Principal`即主体，需要向父类提供AuthenticationManager对象
+* 1.`PKIAuthenticationFilter`类实现证书认证通过以后，提取证书`Principal`即主体，需要向父类提供AuthenticationManager对象
 ```
-package org.spring.oauth.server.config;
-
-import java.security.cert.X509Certificate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.servlet.http.HttpServletRequest;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
-import org.springframework.security.web.authentication.preauth.x509.X509PrincipalExtractor;
-import org.springframework.stereotype.Component;
-
 /**
  * PKI登录,证书主体、凭证提取,用于构建PreAuthenticatedAuthenticationToken对象
  * 参考
@@ -133,10 +106,6 @@ public class PKIAuthenticationFilter extends AbstractPreAuthenticatedProcessingF
 	
 	@Autowired
 	public AuthenticationManager authenticationManager; // 默认实现为ProviderManager
-	
-	@Autowired
-	@Qualifier("sslUserDetailsService")
-	private UserDetailsService sslUserDetailsService;
 	
 	private X509PrincipalExtractor principalExtractor = new DefinedSubjectDnX509PrincipalExtractor();
 	
@@ -344,31 +313,8 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 }
 ```
 
-AuthenticationProvider 实现类`SSLAuthenticationProvider`，依赖UserDetailsService对象注入
+* 2.AuthenticationProvider 实现类`SSLAuthenticationProvider`，依赖UserDetailsService对象注入
 ```
-package org.spring.oauth.server.service;
-
-import org.slf4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.support.MessageSourceAccessor;
-import org.springframework.security.authentication.AccountExpiredException;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.CredentialsExpiredException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.SpringSecurityMessageSource;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsChecker;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
-import org.springframework.stereotype.Component;
-import org.springframework.util.Assert;
-
 /**
  * 入口为类AbstractPreAuthenticatedProcessingFilter(默认过滤器)
  * 自定义提供AuthenticationProvider实现类,Authentication实现类为PreAuthenticatedAuthenticationToken
@@ -454,71 +400,13 @@ public class SSLAuthenticationProvider implements AuthenticationProvider {
 	public boolean supports(Class<?> authentication) {
 		return (PreAuthenticatedAuthenticationToken.class.isAssignableFrom(authentication));
 	}
-	
-	private class DefaultPreAuthenticationChecks implements UserDetailsChecker {
-		public void check(UserDetails user) {
-			if (!user.isAccountNonLocked()) {
-				logger.debug("User account is locked");
-
-				throw new LockedException(messages.getMessage(
-						"AbstractUserDetailsAuthenticationProvider.locked",
-						"User account is locked"));
-			}
-
-			if (!user.isEnabled()) {
-				logger.debug("User account is disabled");
-
-				throw new DisabledException(messages.getMessage(
-						"AbstractUserDetailsAuthenticationProvider.disabled",
-						"User is disabled"));
-			}
-
-			if (!user.isAccountNonExpired()) {
-				logger.debug("User account is expired");
-
-				throw new AccountExpiredException(messages.getMessage(
-						"AbstractUserDetailsAuthenticationProvider.expired",
-						"User account has expired"));
-			}
-		}
-	}
-
-	private class DefaultPostAuthenticationChecks implements UserDetailsChecker {
-		public void check(UserDetails user) {
-			if (!user.isCredentialsNonExpired()) {
-				logger.debug("User account credentials have expired");
-
-				throw new CredentialsExpiredException(messages.getMessage(
-						"AbstractUserDetailsAuthenticationProvider.credentialsExpired",
-						"User credentials have expired"));
-			}
-		}
-	}
 }
 
 ```
 
-获取用户获取服务`UserDetailsService`实现类
+* 3.获取用户获取服务`UserDetailsService`实现类
 
 ```
-package org.spring.oauth.server.service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.spring.oauth.server.dao.PermissionDao;
-import org.spring.oauth.server.dao.UserDao;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Service;
 /**
  * @author oy
  * 
@@ -567,7 +455,58 @@ public class SSLSystemUserDetailsService implements UserDetailsService {
 
 ```
 
+* 4. 注册配置，通过configure(HttpSecurity http)方法注册过滤器，configureGlobal(AuthenticationManagerBuilder auth)方法注册AuthenticationProvider
 
+```
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+	@Autowired
+	@Qualifier("userDetailsService")
+	private UserDetailsService userDetailsService;
+	
+	@Autowired
+	@Qualifier("pkiAuthenticationFilter")
+	private AbstractPreAuthenticatedProcessingFilter PKIAuthenticationFilter;
+	
+	@Autowired
+	@Qualifier("sslAuthenticationProvider")
+	private AuthenticationProvider sslAuthenticationProvider;
+
+	/**
+	 * 此方针对认证(Authentication)的相关配置
+	 * @param auth
+	 * @throws Exception
+	 */
+	@Autowired
+	public void configureGlobal(AuthenticationManagerBuilder auth)
+			throws Exception {
+		// 自定义实现（默认实现）
+		auth.userDetailsService(userDetailsService)
+		                .passwordEncoder(passwordEncoder);
+		
+		// 注入自定义AuthenticationProvider（无法获取到默认UserDetailsService，即不使用默认UserDetailsService）
+		// 自定AuthenticationProvider对象注入自定义UserDetailsService
+		auth.authenticationProvider(sslAuthenticationProvider);
+	}
+
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		// 注册自处义过滤器
+		http.addFilterBefore(PKIAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+		// URL授权配置
+		http.authorizeRequests()
+				.antMatchers("/**", "/oauth/authorize", "/oauth/token", "/oauth/check_token", "/oauth/token_key").permitAll()
+				.anyRequest().authenticated()
+				// 以下增加相对应configure
+				.and().formLogin() // FormLoginConfigurer
+				.and().logout() // LogoutConfigurer
+				.and().csrf().disable(); // CsrfConfigurer
+	}
+}
+
+```
 
 
 

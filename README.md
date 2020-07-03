@@ -85,7 +85,7 @@ public class EnabledHTTPConfiguration {
 * SecurityConfigurer可以组件化方式扩展，主要组织AuthenticationProvider、UserDetailsService、Filter实现类；SecurityBuilder负责任SecurityConfigurer、Filter注册，HttpSecurity最为代表实现SecurityBuilder接口
 
 ### 三、PKI认证两种实现
-#### 第1种实现
+#### 第 `1` 种实现
 * 继承AbstractPreAuthenticatedProcessingFilter、实现AuthenticationProvider、UserDetailsService
 * `PKIAuthenticationFilter`获取证书主体，用于父类构建PreAuthenticatedAuthenticationToken对象，`AuthenticationProvider`提供给`AuthenticationManager`认证，`UserDetailsService`提供具体主体获取，需要注入AuthenticationProvider对象中
 * 将自定类注入Spring security体系结构中
@@ -455,7 +455,7 @@ public class SSLSystemUserDetailsService implements UserDetailsService {
 
 ```
 
-* 4. 注册配置，通过configure(HttpSecurity http)方法注册过滤器，configureGlobal(AuthenticationManagerBuilder auth)方法注册AuthenticationProvider
+* 4.注册配置，通过configure(HttpSecurity http)方法注册过滤器，configureGlobal(AuthenticationManagerBuilder auth)方法注册AuthenticationProvider
 
 ```
 @Configuration
@@ -507,9 +507,10 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 }
 
 ```
+#### 第 `2` 种实现
 
-
-
+* 自定义SecurityConfigurer、Filter等，所有Filter、AuthenticationProvider都在SecurityConfigurer初始化
+* 调用 configure(HttpSecurity http) 方法中http对象注册SecurityConfigurer对象
 
 
 

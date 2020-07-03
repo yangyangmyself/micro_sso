@@ -1,4 +1,4 @@
-## 单点登录升级改，技术栈Oauth2+springboot+security，推荐以code获取token
+## 单点登录升级改，技术栈Oauth2+springboot+security
 *安装部署：*
 * 启动服务后，将项目中certs目下的客户端证书jcbk_client导入浏览器`个人证书里`<br>
 * 访问http://localhost:8443<br>
@@ -94,9 +94,13 @@ public class EnabledHTTPConfiguration {
 * 核心组件SecurityBuilder、SecurityConfigurer、FilterSecurityInterceptor、AbstractSecurityInterceptor
 * SecurityConfigurer可以组件化方式扩展，主要组织AuthenticationProvider、UserDetailsService、Filter实现类；SecurityBuilder负责任SecurityConfigurer、Filter注册，HttpSecurity最为代表实现SecurityBuilder接口
 
-### 三、PKI认证
+### 三、PKI认证两种实现
+#### 第1种实现
+* 继承AbstractPreAuthenticatedProcessingFilter、实现AuthenticationProvider、UserDetailsService
+* `PKIAuthenticationFilter`获取证书主体，用于父类构建PreAuthenticatedAuthenticationToken对象，`AuthenticationProvider`提供给`AuthenticationManager`认证，`UserDetailsService`提供具体主体获取，需要注入AuthenticationProvider对象中
+* 将自定类注入Spring security体系结构中
 
-`PKIAuthenticationFilter`类实现证书认证通过以后，提取证书`Principal`即主体
+`PKIAuthenticationFilter`类实现证书认证通过以后，提取证书`Principal`即主体，需要向父类提供AuthenticationManager对象
 ```
 package org.spring.oauth.server.config;
 
@@ -340,6 +344,234 @@ public abstract class AbstractPreAuthenticatedProcessingFilter extends GenericFi
 }
 ```
 
+AuthenticationProvider 实现类`SSLAuthenticationProvider`，依赖UserDetailsService对象注入
+```
+package org.spring.oauth.server.service;
 
-`源码分析待更新,敬请关注...`
+import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.support.MessageSourceAccessor;
+import org.springframework.security.authentication.AccountExpiredException;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.CredentialsExpiredException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.SpringSecurityMessageSource;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsChecker;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
+import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
+
+/**
+ * 入口为类AbstractPreAuthenticatedProcessingFilter(默认过滤器)
+ * 自定义提供AuthenticationProvider实现类,Authentication实现类为PreAuthenticatedAuthenticationToken
+ * 通过{@code org.spring.oauth.server.config.WebSecurityConfig.configureGlobal(AuthenticationManagerBuilder auth)}
+ * 方法将SSLAuthenticationProvider注入AuthenticationManager实现类ProviderManager提供认证 
+ * @author oyyl
+ * @since 2020/06/30
+ * {@code PreAuthenticatedAuthenticationProvider}
+ * {@code AbstractUserDetailsAuthenticationProvider}
+ * {@code DaoAuthenticationProvider}
+ * {@code PreAuthenticatedAuthenticationToken}
+ * {@code AbstractPreAuthenticatedProcessingFilter}
+ *
+ */
+@Component("sslAuthenticationProvider")
+public class SSLAuthenticationProvider implements AuthenticationProvider {
+
+	@Autowired
+	@Qualifier("sslUserDetailsService")
+	private UserDetailsService sslUserDetailsService;
+
+	private final Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
+	private UserDetailsChecker preAuthenticationChecks = new DefaultPreAuthenticationChecks();
+	private UserDetailsChecker postAuthenticationChecks = new DefaultPostAuthenticationChecks();
+	private MessageSourceAccessor messages = SpringSecurityMessageSource.getAccessor();
+	private boolean throwExceptionWhenTokenRejected = false;
+
+	@Override
+	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+		if (!supports(authentication.getClass())) {
+			return null;
+		}
+		if (logger.isDebugEnabled()) {
+			logger.debug("PreAuthenticated authentication request: " + authentication);
+		}
+
+		if (authentication.getPrincipal() == null) {
+			logger.debug("No pre-authenticated principal found in request.");
+
+			if (throwExceptionWhenTokenRejected) {
+				throw new BadCredentialsException(
+						"No pre-authenticated principal found in request.");
+			}
+			return null;
+		}
+
+		if (authentication.getCredentials() == null) {
+			logger.debug("No pre-authenticated credentials found in request.");
+
+			if (throwExceptionWhenTokenRejected) {
+				throw new BadCredentialsException(
+						"No pre-authenticated credentials found in request.");
+			}
+			return null;
+		}
+		
+		// Determine username
+		String username = (authentication.getPrincipal() == null) ? "NONE_PROVIDED" : authentication.getName();
+		UserDetails user = null;
+		try {
+			user = this.sslUserDetailsService.loadUserByUsername(username);
+		} catch (UsernameNotFoundException notFound) {
+			logger.debug("User '" + username + "' not found");
+			throw new BadCredentialsException(
+					messages.getMessage("SSLAuthenticationProvider.badCredentials", "Bad credentials"));
+		}
+		Assert.notNull(user, "loadUserByUsername returned null - a violation of the interface contract");
+		try {
+			preAuthenticationChecks.check(user);
+		}catch (AuthenticationException exception) {
+			throw exception;
+		}
+		postAuthenticationChecks.check(user);
+
+		PreAuthenticatedAuthenticationToken result = new PreAuthenticatedAuthenticationToken(
+				user, authentication.getCredentials(), user.getAuthorities());
+		result.setDetails(authentication.getDetails());
+
+		return result;
+	}
+
+	@Override
+	public boolean supports(Class<?> authentication) {
+		return (PreAuthenticatedAuthenticationToken.class.isAssignableFrom(authentication));
+	}
+	
+	private class DefaultPreAuthenticationChecks implements UserDetailsChecker {
+		public void check(UserDetails user) {
+			if (!user.isAccountNonLocked()) {
+				logger.debug("User account is locked");
+
+				throw new LockedException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.locked",
+						"User account is locked"));
+			}
+
+			if (!user.isEnabled()) {
+				logger.debug("User account is disabled");
+
+				throw new DisabledException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.disabled",
+						"User is disabled"));
+			}
+
+			if (!user.isAccountNonExpired()) {
+				logger.debug("User account is expired");
+
+				throw new AccountExpiredException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.expired",
+						"User account has expired"));
+			}
+		}
+	}
+
+	private class DefaultPostAuthenticationChecks implements UserDetailsChecker {
+		public void check(UserDetails user) {
+			if (!user.isCredentialsNonExpired()) {
+				logger.debug("User account credentials have expired");
+
+				throw new CredentialsExpiredException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.credentialsExpired",
+						"User credentials have expired"));
+			}
+		}
+	}
+}
+
+```
+
+获取用户获取服务`UserDetailsService`实现类
+
+```
+package org.spring.oauth.server.service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spring.oauth.server.dao.PermissionDao;
+import org.spring.oauth.server.dao.UserDao;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+/**
+ * @author oy
+ * 
+ */
+@Service("sslUserDetailsService")
+public class SSLSystemUserDetailsService implements UserDetailsService {
+
+	protected Logger log = LoggerFactory.getLogger(getClass());
+
+	@Autowired
+	private UserDao userDao; // 具体Dao
+
+	@Autowired
+	private PermissionDao permissionDao;
+
+	@Override
+	public UserDetails loadUserByUsername(String username)
+			throws UsernameNotFoundException {
+		Map map = userDao.findByID(username);
+		if (map != null) {
+			List permissions = getAuthorities(map.get("yhdh").toString());
+			return new User(map.get("yhdh").toString(), map.get("mm")
+					.toString(), permissions);
+		} else {
+			throw new UsernameNotFoundException("admin: " + username
+					+ " do not exist!");
+		}
+	}
+
+	private List<GrantedAuthority> getAuthorities(String yhdh) {
+		List permissions = permissionDao.findPermissionById(yhdh);
+		List<GrantedAuthority> grantedAuthorities = new ArrayList<>();
+		for (Object permission : permissions) {
+			Map map = (Map)permission;
+			if (permission != null && map.get("role") != null) {
+				GrantedAuthority grantedAuthority = new SimpleGrantedAuthority(
+						map.get("role").toString());
+				// 1：此处将权限信息添加到 GrantedAuthority
+				// 对象中，在后面进行全权限验证时会使用GrantedAuthority对象
+				grantedAuthorities.add(grantedAuthority);
+			}
+		}
+		return grantedAuthorities;
+	}
+}
+
+```
+
+
+
+
+
+
+
+
 

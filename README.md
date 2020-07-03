@@ -90,7 +90,7 @@ public class EnabledHTTPConfiguration {
 ### 二、Spring security 安全体系概述
 
 * 安全体系包括`认证`和`授权`两个方面，认证负责验证用户（即主体）是否正确合法；授权负责任检查请求的资源是否有权限访问
-* 体系基于Filter过滤器实现，预定义默认过滤器，如HeaderWriterFilter、SecurityContextPersistenceFilter、X509AuthenticationFilter、UsernamePasswordAuthenticationFilter等
+* 体系基于Filter过滤器实现，预定义默认过滤器，如HeaderWriterFilter、SecurityContextPersistenceFilter、X509AuthenticationFilter、UsernamePasswordAuthenticationFilter等，预定义过滤器基本满足日常开发，特殊情况下才需要自定义过滤器。
 * 核心组件SecurityBuilder、SecurityConfigurer、FilterSecurityInterceptor、AbstractSecurityInterceptor
 * SecurityConfigurer可以组件化方式扩展，主要组织AuthenticationProvider、UserDetailsService、Filter实现类；SecurityBuilder负责任SecurityConfigurer、Filter注册，HttpSecurity最为代表实现SecurityBuilder接口
 

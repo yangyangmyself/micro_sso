@@ -521,8 +521,6 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 * 充分利用Spring security已实现证书认证，继承WebSecurityConfigurerAdapter类，调用HttpSecurity.x509()方法注册X509Configurer组件
 * 采用相关实现类X509AuthenticationFilter、PreAuthenticatedAuthenticationToken、UserDetailsByNameServiceWrapper、PreAuthenticatedAuthenticationProvider
 * 但是使用调用shared object 关于UserDetailsService对象，所以需要重写WebSecurityConfigurerAdapter.userDetailsService()方法
-* 
-
 ```
 @Autowired
 @Qualifier("sslUserDetailsService")

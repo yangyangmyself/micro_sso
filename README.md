@@ -84,7 +84,7 @@ public class EnabledHTTPConfiguration {
 * 核心组件SecurityBuilder、SecurityConfigurer、FilterSecurityInterceptor、AbstractSecurityInterceptor
 * SecurityConfigurer可以组件化方式扩展，主要组织AuthenticationProvider、UserDetailsService、Filter实现类；SecurityBuilder负责任SecurityConfigurer、Filter注册，HttpSecurity最为代表实现SecurityBuilder接口
 
-### 三、PKI认证两种实现
+### 三、PKI`认证`两种实现
 #### 第 `1` 种实现
 * 继承AbstractPreAuthenticatedProcessingFilter、实现AuthenticationProvider、UserDetailsService
 * `PKIAuthenticationFilter`获取证书主体，用于父类构建PreAuthenticatedAuthenticationToken对象，`AuthenticationProvider`提供给`AuthenticationManager`认证，`UserDetailsService`提供具体主体获取，需要注入AuthenticationProvider对象中

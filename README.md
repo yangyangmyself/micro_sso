@@ -84,7 +84,7 @@ public class EnabledHTTPConfiguration {
 * 核心组件SecurityBuilder、SecurityConfigurer、FilterSecurityInterceptor、AbstractSecurityInterceptor
 * SecurityConfigurer可以组件化方式扩展，主要组织AuthenticationProvider、UserDetailsService、Filter实现类；SecurityBuilder负责任SecurityConfigurer、Filter注册，HttpSecurity最为代表实现SecurityBuilder接口
 
-### 三、PKI`认证`两种实现
+### 三、PKI`认证`3种实现
 #### 第 `1` 种实现
 * 继承AbstractPreAuthenticatedProcessingFilter、实现AuthenticationProvider、UserDetailsService
 * `PKIAuthenticationFilter`获取证书主体，用于父类构建PreAuthenticatedAuthenticationToken对象，`AuthenticationProvider`提供给`AuthenticationManager`认证，`UserDetailsService`提供具体主体获取，需要注入AuthenticationProvider对象中
@@ -511,6 +511,35 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 * 自定义SecurityConfigurer、Filter等，所有Filter、AuthenticationProvider都在SecurityConfigurer初始化
 * 调用 configure(HttpSecurity http) 方法中http对象注册SecurityConfigurer对象
+
+
+
+
+
+#### 第 `3` 种实现
+
+* 充分利用Spring security已实现证书认证，继承WebSecurityConfigurerAdapter类，调用HttpSecurity.x509()方法注册X509Configurer组件
+* 采用相关实现类X509AuthenticationFilter、PreAuthenticatedAuthenticationToken、UserDetailsByNameServiceWrapper、PreAuthenticatedAuthenticationProvider
+
+
+```
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+
+        // 启用默认实现
+	http.x509();
+	
+	// URL授权配置
+	http.authorizeRequests()
+			.antMatchers("/**", "/oauth/authorize", "/oauth/token", "/oauth/check_token", "/oauth/token_key").permitAll()
+			.anyRequest().authenticated()
+			// 以下增加相对应configure
+			.and().formLogin() // FormLoginConfigurer
+			.and().logout() // LogoutConfigurer
+			.and().csrf().disable(); // CsrfConfigurer			
+}
+```
+
 
 
 

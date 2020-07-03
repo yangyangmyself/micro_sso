@@ -1,4 +1,4 @@
-## 单点登录升级改，技术栈Oauth2+springboot+security
+## 技术栈Oauth2+springboot+security
 *安装部署：*
 * 启动服务后，将项目中certs目下的客户端证书jcbk_client导入浏览器`个人证书里`<br>
 * 访问http://localhost:8443<br>

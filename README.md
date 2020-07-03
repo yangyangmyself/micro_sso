@@ -1,6 +1,6 @@
 ## 技术栈Oauth2+springboot+security
 *安装部署：*
-* 启动服务后，将项目中certs目下的客户端证书jcbk_client导入浏览器`个人证书里`<br>
+* 启动服务后，将项目中certs目下的客户端证书jcbk_client导入浏览器`个人证书里`,[证书生成](https://github.com/yangyangmyself/micro_sso/tree/master/certs/create_certs.md)
 * 访问http://localhost:8443<br>
 
 *改造要求：*

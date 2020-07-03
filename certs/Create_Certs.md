@@ -1,3 +1,5 @@
+# 自签证书生成（JDK Keytool）
+
 ### 1.服务器证书
 ```
 keytool -genkey -alias jcbk -validity 36500 -keyalg RSA -keysize 1024 -keypass 123456 -storepass 123456 -dname "cn=localhost, ou=00, o=00, l=00, st=01, c=CN" -keystore jcbk.jks
